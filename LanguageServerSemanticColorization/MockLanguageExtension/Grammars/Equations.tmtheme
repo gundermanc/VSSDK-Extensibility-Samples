@@ -1,0 +1,34 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>name</key>
+    <string>Equations sample theme</string>
+    <key>settings</key>
+    <array>
+
+      <dict>
+        <key>scope</key>
+        <string>number</string>
+        <key>settings</key>
+        <dict>
+          <key>vsclassificationtype</key>
+          <string>keyword</string>
+        </dict>
+      </dict>
+
+      <dict>
+        <key>scope</key>
+        <string>comment, punctuation.definition.comment</string>
+        <key>settings</key>
+        <dict>
+          <key>vsclassificationtype</key>
+          <string>comment</string>
+        </dict>
+      </dict>
+
+    </array>
+    <key>uuid</key>
+    <string>2E446FE2-EA19-48AE-A5AF-193535881DB8</string>
+  </dict>
+</plist>
