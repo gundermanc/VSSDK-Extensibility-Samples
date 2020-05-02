@@ -5,7 +5,7 @@
 
     internal sealed class Document
     {
-        private ImmutableDictionary<object, object> services;
+        private ImmutableDictionary<object, object> services = ImmutableDictionary<object, object>.Empty;
 
         public Document(Uri uri)
         {
@@ -20,11 +20,15 @@
         {
             if (!ImmutableInterlocked.TryAdd(
                 ref this.services,
-                serviceFactory.GetType(),
+                serviceFactory.ServiceType,
                 serviceFactory.CreateService(this)))
             {
                 throw new InvalidOperationException("Duplicate service");
             }
         }
+
+        public T GetService<T>() 
+            where T : class 
+            => this.services[typeof(T)] as T;
     }
 }

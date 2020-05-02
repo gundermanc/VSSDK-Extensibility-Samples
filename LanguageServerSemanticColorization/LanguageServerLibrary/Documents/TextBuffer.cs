@@ -3,82 +3,133 @@
     using System;
     using System.Collections.Generic;
     using System.Collections.Immutable;
+    using System.Diagnostics;
     using System.Linq;
     using System.Text;
-    using Microsoft.VisualStudio.Threading;
+    using System.Threading;
 
     /// <summary>
     /// Holds text from an open text document.
     /// </summary>
     /// <remarks>
-    /// This is not the "smartest" TextBuffer, something akin to the
-    /// Visual Studio TextBuffer is more flexible.
-    /// https://github.com/microsoft/vs-editor-api/blob/master/src/Editor/Text/Impl/TextModel/TextBuffer.cs.
+    /// This is not the "smartest" TextBuffer but it attempts to support logarithmic time updates
+    /// anywhere in the document. 
     /// </remarks>
     internal sealed class TextBuffer
     {
         // For this sample, we're using ImmutableList, which is de facto a balanced binary tree,
         // making mutation actions for arbitrarily large files generally a logarithmic time action.
-        private ImmutableList<char> text = ImmutableList<char>.Empty;
+        private Snapshot snapshot = new Snapshot(length: 0, ImmutableList<ImmutableList<char>>.Empty);
 
-        public event AsyncEventHandler ChangedAsync;
+        public event EventHandler<TextBufferChangedEventArgs> Changed;
 
-        public int Length => this.text.Count;
+        public int Length => this.snapshot.Length;
 
-        public void Replace(params (int start, int length, string newText)[] changes)
-            => Replace((IEnumerable<(int start, int length, string newText)>)changes);
+        public void Replace(params (int line, int start, int length, string newText)[] changes)
+            => Replace((IEnumerable<(int line, int start, int length, string newText)>)changes);
 
-        public void Replace(IEnumerable<(int start, int length, string newText)> changes)
+        public void Replace(IEnumerable<(int line, int start, int length, string newText)> changes)
         {
-            var text = this.text;
+            bool changed;
 
-            bool changed = false;
+            Snapshot oldSnapshot = null;
+            Snapshot newSnapshot = null;
 
-            foreach (var (start, length, newText) in changes.OrderByDescending(change => change.start))
+            do
             {
-                if (start > text.Count || (start + length) > text.Count)
-                {
-                    throw new ArgumentOutOfRangeException("Attempted to replace text beyond end of document");
-                }
-
-                changed |= length > 0 || newText.Length > 0;
-
-                text = text.RemoveRange(start, length).InsertRange(start, newText);
+                oldSnapshot = this.snapshot;
+                newSnapshot = this.CreateNewSnapshotForReplace(oldSnapshot, changes, out changed);
             }
+            while (Interlocked.CompareExchange(ref this.snapshot, newSnapshot, oldSnapshot) != oldSnapshot);
 
+            // Notify subscribers that the text changed.
             if (changed)
             {
-                this.Changed?.Invoke(this, EventArgs.Empty);
+                this.Changed?.Invoke(
+                    this,
+                    new TextBufferChangedEventArgs(
+                        newSnapshot,
+                        changes.Select(change => change.line).ToArray()));
             }
-
-            this.text = text;
         }
 
         public string GetText(int start = 0, int length = -1)
         {
-            var text = this.text;
+            var lines = this.snapshot.Lines;
 
             if (length == -1)
             {
-                length = text.Count;
+                length = this.Length;
             }
 
-            if (start > text.Count || start + length > text.Count)
+            if (start > this.Length || start + length > this.Length)
             {
                 throw new ArgumentOutOfRangeException($"{nameof(start)} and/or {nameof(length)} is beyond length of document");
             }
 
             var builder = new StringBuilder();
-            for (int i = start; i < start + length; i++)
+            foreach (var line in lines)
             {
-                builder.Append(text[i]);
+                for (int i = start; i < start + length; i++)
+                {
+                    builder.Append(line[i]);
+                }
+
+                builder.AppendLine();
             }
             return builder.ToString();
         }
 
-        public override string ToString()
+        public override string ToString() => this.GetText();
+
+        private Snapshot CreateNewSnapshotForReplace(
+            Snapshot oldSnapshot,
+            IEnumerable<(int line, int start, int length, string newText)> changes, out bool changed)
         {
-            return this.GetText();
+            var lines = oldSnapshot.Lines;
+
+            var changeInLength = 0;
+            changed = false;
+            foreach (var (line, start, length, newText) in changes.OrderByDescending(change => change.start))
+            {
+                // Check bounds.
+                if (start > oldSnapshot.Length || (start + length) > oldSnapshot.Length)
+                {
+                    throw new ArgumentOutOfRangeException("Attempted to replace text beyond end of document");
+                }
+
+                // Add or update line text.
+                lines = line < lines.Count
+                    ? lines.SetItem(line, lines[line].RemoveRange(start, length).InsertRange(start, newText))
+                    : lines.Add(ImmutableList<char>.Empty.AddRange(newText));
+
+                // Update length.
+                changeInLength += newText.Length - length;
+                changed |= length > 0 || newText.Length > 0;
+            }
+
+            // Update document snapshot.
+            return new Snapshot(
+                length: Math.Max(0, (int)(oldSnapshot.Length + changeInLength)),
+                lines);
+        }
+
+        internal sealed class Snapshot
+        {
+            public Snapshot(
+                int length,
+                ImmutableList<ImmutableList<char>> lines)
+            {
+                // In debug configuration, check our length calculation.
+                Debug.Assert(lines.Sum(line => line.Count) == length);
+
+                this.Length = length;
+                this.Lines = lines;
+            }
+
+            public int Length { get; }
+
+            public ImmutableList<ImmutableList<char>> Lines { get; }
         }
     }
 }

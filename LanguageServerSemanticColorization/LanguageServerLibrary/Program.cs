@@ -1,5 +1,7 @@
 ﻿namespace LanguageServerLibrary
 {
+    using LanguageServerLibrary.Parser;
+
     using System.IO.Pipes;
     using System.Threading.Tasks;
 
@@ -23,7 +25,10 @@
             await readerPipe.ConnectAsync();
             await writerPipe.ConnectAsync();
 
-            using var languageServer = new LanguageServer.LanguageServer(writerPipe, readerPipe);
+            using var languageServer = new LanguageServer.LanguageServer(
+                writerPipe,
+                readerPipe,
+                new ParserServiceFactory());
 
             await languageServer.HasCompleted;
         }

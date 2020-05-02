@@ -47,8 +47,9 @@
     <Reference Include="Microsoft.VisualStudio.LanguageServer.Client, Version=15.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.VisualStudio.LanguageServer.Client.15.8.3057\lib\net461\Microsoft.VisualStudio.LanguageServer.Client.dll</HintPath>
     </Reference>
-    <Reference Include="Microsoft.VisualStudio.LanguageServer.Protocol, Version=15.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
-      <HintPath>..\packages\Microsoft.VisualStudio.LanguageServer.Protocol.15.8.3057\lib\net461\Microsoft.VisualStudio.LanguageServer.Protocol.dll</HintPath>
+    <Reference Include="Microsoft.VisualStudio.LanguageServer.Protocol, Version=16.7.15.65332, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\VSLanguageServerClient\bin\product\RemoteLanguage.Protocol\Debug\netstandard1.0\Microsoft.VisualStudio.LanguageServer.Protocol.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.VisualStudio.Threading, Version=16.6.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.VisualStudio.Threading.16.6.13\lib\net472\Microsoft.VisualStudio.Threading.dll</HintPath>
@@ -158,6 +159,7 @@
     <Compile Include="Documents\DocumentManager.cs" />
     <Compile Include="Documents\IDocumentServiceFactory.cs" />
     <Compile Include="Documents\TextBuffer.cs" />
+    <Compile Include="Documents\TextBufferChangedEventArgs.cs" />
     <Compile Include="LanguageServer.cs" />
     <Compile Include="LanguageServerTarget.cs" />
     <Compile Include="Parser\ParserService.cs" />
