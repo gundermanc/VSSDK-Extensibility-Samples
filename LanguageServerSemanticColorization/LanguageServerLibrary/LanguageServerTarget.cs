@@ -123,11 +123,16 @@
             {
                 if (token.HasValue)
                 {
+                    // Reset the start offset when the line changes.
+                    var previousTokenOnThisLineOffset = previousToken.Line == token.Value.Line ?
+                        previousToken.StartOffset :
+                        0;
+
                     // Data are delta encoded, as the difference between the location of the previous
                     // token and the next one.
                     dataBuilder.Add(token.Value.Line - previousToken.Line);
-                    dataBuilder.Add(token.Value.StartOffset - previousToken.StartOffset);
-                    dataBuilder.Add(token.Value.Length - previousToken.Length);
+                    dataBuilder.Add(token.Value.StartOffset - previousTokenOnThisLineOffset);
+                    dataBuilder.Add(token.Value.Length);
 
                     // Lookup the token type's integer representation.
                     dataBuilder.Add(
