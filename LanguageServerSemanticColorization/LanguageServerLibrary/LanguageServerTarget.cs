@@ -3,6 +3,7 @@
 
     using System;
     using System.Collections.Generic;
+    using System.Collections.Immutable;
     using System.Linq;
     using System.Text.RegularExpressions;
 
@@ -16,10 +17,21 @@
     public sealed class LanguageServerTarget
     {
         private readonly LanguageServer server;
+        private ImmutableDictionary<string, int> tokenTypesLegend = ImmutableDictionary<string, int>.Empty;
 
         internal LanguageServerTarget(LanguageServer server)
         {
             this.server = server;
+
+            // Create token type look up 'legend'.
+            int i = 0;
+            var legendBuilder = ImmutableDictionary.CreateBuilder<string, int>();
+            foreach (var tokenType in SemanticTokenTypes.AllTypes)
+            {
+                legendBuilder.Add(tokenType, i++);
+            }
+
+            this.tokenTypesLegend = legendBuilder.ToImmutable();
         }
 
         public event EventHandler Initialized;
@@ -34,9 +46,14 @@
                     OpenClose = true,
                     Change = TextDocumentSyncKind.Incremental
                 },
-                SemanticTokensOptions = new SemanticTokensOptions()
+                SemanticTokensOptions = new SemanticTokensOptions
                 {
-                    DocumentProvider = new SumType<bool, DocumentProviderOptions>(true)
+                    DocumentProvider = new SumType<bool, DocumentProviderOptions>(true),
+                    Legend = new SemanticTokensLegend
+                    {
+                        TokenModifiers = Array.Empty<string>(),
+                        TokenTypes = SemanticTokenTypes.AllTypes.ToArray()
+                    }
                 }
             };
 
@@ -104,7 +121,7 @@
             Token previousToken = new Token(0, 0, 0, false);
             foreach (var token in parserService.LineTokens)
             {
-                if (token != null)
+                if (token.HasValue)
                 {
                     // Data are delta encoded, as the difference between the location of the previous
                     // token and the next one.
@@ -112,8 +129,14 @@
                     dataBuilder.Add(token.Value.StartOffset - previousToken.StartOffset);
                     dataBuilder.Add(token.Value.Length - previousToken.Length);
 
-                    // TODO: 
-                    dataBuilder.Add(0);
+                    // Lookup the token type's integer representation.
+                    dataBuilder.Add(
+                        this.tokenTypesLegend[
+                            token.Value.IsMatch ?
+                            SemanticTokenTypes.Keyword :
+                            SemanticTokenTypes.String]);
+
+                    // TODO: token modifiers.
                     dataBuilder.Add(0);
 
                     previousToken = token.Value;
