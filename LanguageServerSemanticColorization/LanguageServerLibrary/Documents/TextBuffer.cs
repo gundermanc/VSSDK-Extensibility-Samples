@@ -99,13 +99,21 @@
                 }
 
                 // Add or update line text.
-                lines = line < lines.Count
-                    ? lines.SetItem(line, lines[line].RemoveRange(start, length).InsertRange(start, newText))
-                    : lines.Add(ImmutableList<char>.Empty.AddRange(newText));
+                if (line < lines.Count)
+                {
+                    lines = lines.SetItem(line, lines[line].RemoveRange(start, length).InsertRange(start, newText));
+                    changed |= length > 0 || newText.Length > 0;
+                }
+                else
+                {
+                    lines = lines.Add(ImmutableList<char>.Empty.AddRange(newText));
+
+                    // We inserted a (possibly empty) line.
+                    changed |= true;
+                }
 
                 // Update length.
                 changeInLength += newText.Length - length;
-                changed |= length > 0 || newText.Length > 0;
             }
 
             // Update document snapshot.

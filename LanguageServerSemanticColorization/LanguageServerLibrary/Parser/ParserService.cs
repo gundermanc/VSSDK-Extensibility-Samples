@@ -5,12 +5,8 @@
     using System.IO;
     using System.Linq;
     using System.Text.RegularExpressions;
-    using System.Threading;
-    using System.Threading.Tasks;
 
     using LanguageServerLibrary.Documents;
-
-    using Microsoft.VisualStudio.Threading;
 
     using static LanguageServerLibrary.Documents.TextBuffer;
 
@@ -18,7 +14,6 @@
     {
         private readonly Document document;
 
-        private CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
         private ImmutableList<Token?> lineTokens = ImmutableList<Token?>.Empty;
 
         public ParserService(Document document)
@@ -33,32 +28,22 @@
 
         private void QueueReparse(Snapshot snapshot, IReadOnlyList<int> invalidatedLines)
         {
-            // Cancel any previous parses.
-            var newCancellationTokenSource = new CancellationTokenSource();
-            var oldCancellationTokenSource = Interlocked.Exchange(
-                ref this.cancellationTokenSource,
-                new CancellationTokenSource());
-            if (oldCancellationTokenSource != null)
-            {
-                oldCancellationTokenSource.Cancel();
-                oldCancellationTokenSource.Dispose();
-            }
-
-            // Start new parse.
-            Task.Run(() => this.ParseLines(snapshot, invalidatedLines, newCancellationTokenSource.Token)).Forget();
+            // For simplicity, we'll do the parse in direct response
+            // to the edit but in a real language service, you'd want
+            // to do the parse on a separate thread so as to not delay
+            // the ACK message to the LSP client and block subseqeuent
+            // edits.
+            this.ParseLines(snapshot, invalidatedLines);
         }
 
         private void ParseLines(
             Snapshot snapshot,
-            IReadOnlyList<int> invalidatedLines,
-            CancellationToken cancellationToken)
+            IReadOnlyList<int> invalidatedLines)
         {
             var lineTokens = this.lineTokens;
 
             foreach (var lineNumber in invalidatedLines)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-
                 var line = snapshot.Lines[lineNumber];
                 var newToken = this.ParseLine(lineNumber, line);
 
