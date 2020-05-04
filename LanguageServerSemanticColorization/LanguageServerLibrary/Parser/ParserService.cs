@@ -115,9 +115,9 @@
             return @operator switch
             {
                 "+" => leftNumber + rightNumber,
-                "-" => leftNumber + rightNumber,
-                "*" => leftNumber + rightNumber,
-                "/" => leftNumber + rightNumber,
+                "-" => leftNumber - rightNumber,
+                "*" => leftNumber * rightNumber,
+                "/" => leftNumber / rightNumber,
                 _ => throw new InvalidDataException("Invalid syntax"),
             };
         }
