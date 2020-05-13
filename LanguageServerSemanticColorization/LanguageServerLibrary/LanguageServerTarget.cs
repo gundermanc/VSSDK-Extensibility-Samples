@@ -36,6 +36,10 @@
 
         public event EventHandler Initialized;
 
+        /// <summary>
+        /// Called by Visual Studio to initialize language server and agree on
+        /// supported capabilities.
+        /// </summary>
         [JsonRpcMethod(Methods.InitializeName, UseSingleObjectParameterDeserialization = true)]
         public object Initialize(InitializeParams arg)
         {
@@ -48,12 +52,23 @@
                 },
                 SemanticTokensOptions = new SemanticTokensOptions
                 {
+                    // 'true' indicates that we support semantic colorization of the document.
                     DocumentProvider = new SumType<bool, DocumentProviderOptions>(true),
+
+                    // Defines the mapping of tokenTypes and TokenModifiers used
+                    // by Visual Studio to colorize the text.
                     Legend = new SemanticTokensLegend
                     {
                         TokenModifiers = Array.Empty<string>(),
                         TokenTypes = SemanticTokenTypes.AllTypes.ToArray()
-                    }
+                    },
+
+                    // Indicates that we support sending ranges of token updates
+                    // instead of updating the entire document. The Visual Studio
+                    // language client will always prefer asking for ranges, if
+                    // possible, but you can comment out to test the full document
+                    // path instead.
+                    RangeProvider = true
                 }
             };
 
@@ -67,6 +82,9 @@
             return result;
         }
 
+        /// <summary>
+        /// Sent by Visual Studio to alert server that a file was opened.
+        /// </summary>
         [JsonRpcMethod(Methods.TextDocumentDidOpenName, UseSingleObjectParameterDeserialization = true)]
         public void OnTextDocumentOpened(DidOpenTextDocumentParams didOpenParams)
         {
@@ -81,10 +99,17 @@
             }
         }
 
+        /// <summary>
+        /// Sent by Visual Studio to alert server that a file was closed.
+        /// </summary>
+        /// <param name="didCloseParams"></param>
         [JsonRpcMethod(Methods.TextDocumentDidCloseName, UseSingleObjectParameterDeserialization = true)]
         public void OnTextDocumentDidClose(DidCloseTextDocumentParams didCloseParams)
             => this.server.DocumentManager.RemoveDocumentIfExists(didCloseParams.TextDocument.Uri);
 
+        /// <summary>
+        /// Sent by server to synchronize text changes between the client and server.
+        /// </summary>
         [JsonRpcMethod(Methods.TextDocumentDidChangeName, UseSingleObjectParameterDeserialization = true)]
         public void OnTextDocumentChanged(DidChangeTextDocumentParams didChangeParams)
         {
@@ -100,15 +125,19 @@
                     change.Range.End.Character - change.Range.Start.Character, change.Text)));
         }
 
+        /// <summary>
+        /// Gets ALL semantic tokens for colorizing the entire document at the current point
+        /// in time.
+        /// </summary>
+        /// <remarks>
+        /// This method is likely used only by language server clients that don't support
+        /// range requests. Visual Studio, for example, will never call this if RangeProvider
+        /// capability is <c>true</c>.
+        /// </remarks>
         [JsonRpcMethod(Methods.TextDocumentSemanticTokensName, UseSingleObjectParameterDeserialization = true)]
         public SemanticTokens OnTextDocumentSemanticTokens(SemanticTokensParams semanticTokensParams)
         {
             var document = this.server.DocumentManager.GetOrAddDocument(semanticTokensParams.TextDocument.Uri);
-
-            if (document.TextBuffer.Length < 5)
-            {
-                return null;
-            }
 
             var parserService = document.GetService<ParserService>();
 
@@ -121,35 +150,42 @@
             Token previousToken = new Token(0, 0, 0, false);
             foreach (var token in parserService.LineTokens)
             {
-                if (token.HasValue)
-                {
-                    // Reset the start offset when the line changes.
-                    var previousTokenOnThisLineOffset = previousToken.Line == token.Value.Line ?
-                        previousToken.StartOffset :
-                        0;
-
-                    // Data are delta encoded, as the difference between the location of the previous
-                    // token and the next one.
-                    dataBuilder.Add(token.Value.Line - previousToken.Line);
-                    dataBuilder.Add(token.Value.StartOffset - previousTokenOnThisLineOffset);
-                    dataBuilder.Add(token.Value.Length);
-
-                    // Lookup the token type's integer representation.
-                    dataBuilder.Add(
-                        this.tokenTypesLegend[
-                            token.Value.IsMatch ?
-                            SemanticTokenTypes.Keyword :
-                            SemanticTokenTypes.String]);
-
-                    // TODO: token modifiers.
-                    dataBuilder.Add(0);
-
-                    previousToken = token.Value;
-                }
+                this.EncodeToken(dataBuilder, token, ref previousToken);
             }
 
             // Highlight first 5 characters.
             return new SemanticTokens()
+            {
+                Data = dataBuilder.ToArray()
+            };
+        }
+
+        /// <summary>
+        /// Gets a range of semantic tokens for colorizing part of a document at the current
+        /// point in time.
+        /// </summary>
+        /// <remarks>
+        /// This method is probably used by most clients for colorizing spans of text that
+        /// are currently visible.
+        /// </remarks>
+        [JsonRpcMethod(Methods.TextDocumentSemanticTokensRangeName, UseSingleObjectParameterDeserialization = true)]
+        public SemanticTokens OnTextDocumentSemanticTokensRange(SemanticTokensRangeParams semanticTokensParams)
+        {
+            var document = this.server.DocumentManager.GetOrAddDocument(semanticTokensParams.TextDocument.Uri);
+
+            var parserService = document.GetService<ParserService>();
+
+            var dataBuilder = new List<double>();
+
+            Token previousToken = new Token(0, 0, 0, false);
+            for (int lineNumber = semanticTokensParams.Range.Start.Line; lineNumber < semanticTokensParams.Range.End.Line; lineNumber++)
+            {
+                var lineToken = parserService.LineTokens[lineNumber];
+
+                EncodeToken(dataBuilder, lineToken, ref previousToken);
+            }
+
+            return new SemanticTokens
             {
                 Data = dataBuilder.ToArray()
             };
@@ -165,6 +201,35 @@
         public void Exit()
         {
             server.Exit();
+        }
+
+        private void EncodeToken(List<double> dataBuilder, Token? token, ref Token previousToken)
+        {
+            if (token.HasValue)
+            {
+                // Reset the start offset when the line changes.
+                var previousTokenOnThisLineOffset = previousToken.Line == token.Value.Line ?
+                    previousToken.StartOffset :
+                    0;
+
+                // Data are delta encoded, as the difference between the location of the previous
+                // token and the next one.
+                dataBuilder.Add(token.Value.Line - previousToken.Line);
+                dataBuilder.Add(token.Value.StartOffset - previousTokenOnThisLineOffset);
+                dataBuilder.Add(token.Value.Length);
+
+                // Lookup the token type's integer representation.
+                dataBuilder.Add(
+                    this.tokenTypesLegend[
+                        token.Value.IsMatch ?
+                        SemanticTokenTypes.Keyword :
+                        SemanticTokenTypes.String]);
+
+                // TODO: token modifiers.
+                dataBuilder.Add(0);
+
+                previousToken = token.Value;
+            }
         }
     }
 }
