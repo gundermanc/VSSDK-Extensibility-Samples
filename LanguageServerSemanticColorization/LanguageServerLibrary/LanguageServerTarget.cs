@@ -6,13 +6,12 @@
     using System.Collections.Immutable;
     using System.Linq;
     using System.Text.RegularExpressions;
-
     using LanguageServerLibrary.Parser;
-
-    using Microsoft.VisualStudio.LanguageServer.Protocol;
     using StreamJsonRpc;
+    using Microsoft.VisualStudio.LanguageServer.Protocol;
 
     using static LanguageServerLibrary.Parser.ParserService;
+    using System.Threading;
 
     public sealed class LanguageServerTarget
     {
@@ -150,10 +149,28 @@
             Token previousToken = new Token(0, 0, 0, false);
             foreach (var token in parserService.LineTokens)
             {
-                this.EncodeToken(dataBuilder, token, ref previousToken);
+                // If PartialResultToken was given, we can send progressive
+                // updates instead of processing the whole thing.
+                // It's not really necessary for this trivial sample, but a
+                // a more complex language service might benefit.
+                if (semanticTokensParams.PartialResultToken != null)
+                {
+                    // When doing progressive updates, specify first relative to the start of the doc.
+                    previousToken = new Token(0, 0, 0, false);
+
+                    List<double> batchTokensBuilder = new List<double>();
+                    this.EncodeToken(batchTokensBuilder, token, ref previousToken);
+                    semanticTokensParams.PartialResultToken.Report(new SemanticTokens { Data = batchTokensBuilder.ToArray() });
+
+                    // Uncomment to simulate per-result processing delay and to see line by line updates.
+                    // Thread.Sleep(1000);
+                }
+                else
+                {
+                    this.EncodeToken(dataBuilder, token, ref previousToken);
+                }
             }
 
-            // Highlight first 5 characters.
             return new SemanticTokens()
             {
                 Data = dataBuilder.ToArray()
@@ -175,17 +192,43 @@
 
             var parserService = document.GetService<ParserService>();
 
-            var dataBuilder = new List<double>();
+            // Ensure we parse a minimum of 1 line.
+            var endLine = Math.Max(semanticTokensParams.Range.End.Line, semanticTokensParams.Range.Start.Line + 1);
 
+            // TODO: there's a race condition here.
+            // User makes an edit, parse starts, then some time later
+            // we complete the parse, but the LSP client is going to
+            // ask for new tokens immediately. We need to await the
+            // in progress parse here.
+            var dataBuilder = new List<double>();
             Token previousToken = new Token(0, 0, 0, false);
-            for (int lineNumber = semanticTokensParams.Range.Start.Line; lineNumber < semanticTokensParams.Range.End.Line; lineNumber++)
+            for (int lineNumber = semanticTokensParams.Range.Start.Line; lineNumber < endLine; lineNumber++)
             {
                 var lineToken = parserService.LineTokens[lineNumber];
 
-                EncodeToken(dataBuilder, lineToken, ref previousToken);
+                // If PartialResultToken was given, we can send progressive
+                // updates instead of processing the whole thing.
+                // It's not really necessary for this trivial sample, but a
+                // a more complex language service might benefit.
+                if (semanticTokensParams.PartialResultToken != null)
+                {
+                    // When doing progressive updates, specify first relative to the start of the doc.
+                    previousToken = new Token(0, 0, 0, false);
+
+                    List<double> batchTokensBuilder = new List<double>();
+                    this.EncodeToken(batchTokensBuilder, lineToken, ref previousToken);
+                    semanticTokensParams.PartialResultToken.Report(new SemanticTokens { Data = batchTokensBuilder.ToArray() });
+
+                    // Uncomment to simulate per-result processing delay and to see line by line updates.
+                    // Thread.Sleep(1000);
+                }
+                else
+                {
+                    this.EncodeToken(dataBuilder, lineToken, ref previousToken);
+                }
             }
 
-            return new SemanticTokens
+            return new SemanticTokens()
             {
                 Data = dataBuilder.ToArray()
             };
