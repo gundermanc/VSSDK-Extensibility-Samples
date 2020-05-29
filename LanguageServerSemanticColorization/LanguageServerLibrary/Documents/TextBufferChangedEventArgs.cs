@@ -7,15 +7,14 @@
 
     internal sealed class TextBufferChangedEventArgs : EventArgs
     {
-        public TextBufferChangedEventArgs(Snapshot snapshot, IReadOnlyList<int> invalidatedLines)
+        public TextBufferChangedEventArgs(Snapshot snapshot, IReadOnlyList<int> invalidatedOrInsertedLines)
         {
             this.Snapshot = snapshot;
-            this.InvalidatedLines = invalidatedLines;
+            this.InvalidatedOrInsertedLines = invalidatedOrInsertedLines;
         }
 
         public Snapshot Snapshot { get; }
 
-        public IReadOnlyList<int> InvalidatedLines { get; }
-
+        public IReadOnlyList<int> InvalidatedOrInsertedLines { get; }
     }
 }

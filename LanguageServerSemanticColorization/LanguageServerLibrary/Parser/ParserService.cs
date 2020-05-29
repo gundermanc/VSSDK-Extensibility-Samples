@@ -15,16 +15,32 @@
         private readonly Document document;
 
         private ImmutableList<Token?> lineTokens = ImmutableList<Token?>.Empty;
+        private IncrementalUpdate update = IncrementalUpdate.Empty;
+        private int version;
 
         public ParserService(Document document)
         {
             this.document = document;
-            this.document.TextBuffer.Changed += OnTextBufferChanged;
+            this.document.TextBuffer.Changed += this.OnTextBufferChanged;
         }
 
         public IReadOnlyList<Token?> LineTokens => this.lineTokens;
 
-        private void OnTextBufferChanged(object sender, TextBufferChangedEventArgs e) => this.QueueReparse(e.Snapshot, e.InvalidatedLines);
+        public IncrementalUpdate QueuedUpdates
+        {
+            get
+            {
+                var update = this.update;
+                this.update = IncrementalUpdate.Empty;
+
+                return update;
+            }
+
+            set => this.update = value;
+        }
+
+        private void OnTextBufferChanged(object sender, TextBufferChangedEventArgs e)
+            => this.QueueReparse(e.Snapshot, e.InvalidatedOrInsertedLines);
 
         private void QueueReparse(Snapshot snapshot, IReadOnlyList<int> invalidatedLines)
         {
@@ -42,17 +58,31 @@
         {
             var lineTokens = this.lineTokens;
 
+            var changeCollection = ImmutableArray.CreateBuilder<Change>();
+
             foreach (var lineNumber in invalidatedLines)
             {
                 var line = snapshot.Lines[lineNumber];
                 var newToken = this.ParseLine(lineNumber, line);
 
-                lineTokens = lineNumber < lineTokens.Count ?
-                    lineTokens.SetItem(lineNumber, newToken) :
-                    lineTokens.Add(newToken);
+                // TODO: batching.
+                // TODO: multiple lines?
+                if (lineNumber < lineTokens.Count)
+                {
+                    lineTokens = lineTokens.SetItem(lineNumber, newToken);
+                    changeCollection.Add(new Change(lineNumber, 1, ImmutableArray.Create(newToken)));
+                }
+                else
+                {
+                    lineTokens = lineTokens.Add(newToken);
+                    changeCollection.Add(new Change(lineNumber, 0, ImmutableArray.Create(newToken)));
+                }
             }
 
+            // TODO: do we need to preserve old, not yet fetched edits?
             this.lineTokens = lineTokens;
+            this.QueuedUpdates = new IncrementalUpdate(this.version, changeCollection.ToImmutable());
+            this.version++;
         }
 
         private Token? ParseLine(
@@ -139,6 +169,38 @@
             public int Length { get; }
 
             public bool IsMatch { get; }
+        }
+
+        internal class IncrementalUpdate
+        {
+            public static readonly IncrementalUpdate Empty = new IncrementalUpdate(0, ImmutableArray<Change>.Empty);
+
+
+            public IncrementalUpdate(int targetVersionNumber, ImmutableArray<Change> changes)
+            {
+                this.TargetVersionNumber = targetVersionNumber;
+                this.Changes = changes;
+            }
+
+            public int TargetVersionNumber { get; }
+
+            public ImmutableArray<Change> Changes { get; }
+        }
+
+        internal class Change
+        {
+            public Change(int start, int deleteCount, ImmutableArray<Token?> tokens)
+            {
+                this.Start = start;
+                this.DeleteCount = deleteCount;
+                this.Tokens = tokens;
+            }
+
+            public int Start { get; }
+
+            public int DeleteCount { get; }
+
+            public ImmutableArray<Token?> Tokens { get; }
         }
     }
 }

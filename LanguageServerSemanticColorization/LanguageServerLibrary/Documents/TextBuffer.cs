@@ -99,6 +99,7 @@
                 }
 
                 // Add or update line text.
+                // TODO: this doesn't support return carriage (/r/n).
                 if (line < lines.Count)
                 {
                     lines = lines.SetItem(line, lines[line].RemoveRange(start, length).InsertRange(start, newText));

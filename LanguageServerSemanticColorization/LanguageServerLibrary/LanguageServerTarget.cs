@@ -11,7 +11,6 @@
     using Microsoft.VisualStudio.LanguageServer.Protocol;
 
     using static LanguageServerLibrary.Parser.ParserService;
-    using System.Threading;
 
     public sealed class LanguageServerTarget
     {
@@ -52,7 +51,10 @@
                 SemanticTokensOptions = new SemanticTokensOptions
                 {
                     // 'true' indicates that we support semantic colorization of the document.
-                    DocumentProvider = new SumType<bool, DocumentProviderOptions>(true),
+                    DocumentProvider = new SumType<bool, DocumentProviderOptions>(new DocumentProviderOptions()
+                    {
+                        Edits = true
+                    }),
 
                     // Defines the mapping of tokenTypes and TokenModifiers used
                     // by Visual Studio to colorize the text.
@@ -220,7 +222,7 @@
                     semanticTokensParams.PartialResultToken.Report(new SemanticTokens { Data = batchTokensBuilder.ToArray() });
 
                     // Uncomment to simulate per-result processing delay and to see line by line updates.
-                    // Thread.Sleep(1000);
+                    //Thread.Sleep(100);
                 }
                 else
                 {
@@ -234,6 +236,18 @@
             };
         }
 
+        [JsonRpcMethod(Methods.TextDocumentSemanticTokensEditsName, UseSingleObjectParameterDeserialization = true)]
+        public SumType<SemanticTokens, SemanticTokensEdits> OnTextDocumentSemanticTokensEdits(SemanticTokensEditsParams semanticTokensParams)
+        {
+            var document = this.server.DocumentManager.GetOrAddDocument(semanticTokensParams.TextDocument.Uri);
+
+            var parserService = document.GetService<ParserService>();
+
+            var queuedUpdates = parserService.QueuedUpdates;
+
+            return EncodeEdits(queuedUpdates);
+        }
+
         [JsonRpcMethod(Methods.ShutdownName)]
         public object Shutdown()
         {
@@ -244,6 +258,39 @@
         public void Exit()
         {
             server.Exit();
+        }
+
+        private SemanticTokensEdits EncodeEdits(IncrementalUpdate update)
+        {
+            var edits = new List<SemanticTokensEdit>();
+
+            foreach (var change in update.Changes)
+            {
+                edits.Add(EncodeChange(change));
+            }
+
+            return new SemanticTokensEdits
+            {
+                Edits = edits.ToArray(),
+                ResultId = update.TargetVersionNumber.ToString()
+            };
+        }
+
+        private SemanticTokensEdit EncodeChange(Change change)
+        {
+            var tokensBuilder = new List<double>();
+            Token previousToken = new Token(0, 0, 0, false);
+            foreach (var token in change.Tokens)
+            {
+                EncodeToken(tokensBuilder, token, ref previousToken);
+            }
+
+            return new SemanticTokensEdit
+            {
+                Start = change.Start * 5,
+                DeleteCount = change.DeleteCount * 5,
+                Data = tokensBuilder.ToArray()
+            };
         }
 
         private void EncodeToken(List<double> dataBuilder, Token? token, ref Token previousToken)
