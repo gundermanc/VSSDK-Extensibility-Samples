@@ -367,7 +367,7 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\LanguageServerLibrary\LanguageServer.csproj">
+    <ProjectReference Include="..\LanguageServer\LanguageServer.csproj">
       <Project>{8d2bafe8-572e-4b7d-9c88-df8c18903b1d}</Project>
       <Name>LanguageServer</Name>
       <IncludeOutputGroupsInVSIX>BuiltProjectOutputGroup%3bBuiltProjectOutputGroupDependencies%3bGetCopyToOutputDirectoryItems%3bSatelliteDllsProjectOutputGroup%3b</IncludeOutputGroupsInVSIX>

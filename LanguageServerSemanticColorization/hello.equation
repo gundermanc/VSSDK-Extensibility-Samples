@@ -1,0 +1,4 @@
+5 + 5 EQUALS 10 + 0 // Turns blue because it's true
+5 + 5 NOT_EQUALS 10 + 1 // Turns red because it's false
+5 * 5 EQUALS 20 + 5 // Turns blue because it's true
+1 + 2 EQUALS 4 + 3 // Turns red because it's false

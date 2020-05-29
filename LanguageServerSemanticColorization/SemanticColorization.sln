@@ -3,9 +3,14 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.30029.106
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LanguageServer", "LanguageServerLibrary\LanguageServer.csproj", "{8D2BAFE8-572E-4B7D-9C88-DF8C18903B1D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LanguageServer", "LanguageServer\LanguageServer.csproj", "{8D2BAFE8-572E-4B7D-9C88-DF8C18903B1D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SemanticColorizationExtension", "MockLanguageExtension\SemanticColorizationExtension.csproj", "{EB360D87-8769-44A4-B837-8BC3279070C9}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LanguageExtension", "LanguageExtension\LanguageExtension.csproj", "{EB360D87-8769-44A4-B837-8BC3279070C9}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{F4B7D2E1-9DE8-4F78-B444-F35AD167D388}"
+	ProjectSection(SolutionItems) = preProject
+		README.md = README.md
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
