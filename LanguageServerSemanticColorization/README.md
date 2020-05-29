@@ -3,7 +3,7 @@ This sample implements a simple language server extension for Visual Studio usin
 [common language protocol](https://microsoft.github.io/language-server-protocol/specification)'s
 'textDocument/semanticTokens/*' messages to implement server provided semantic text colorization.
 
-![image](Resources/SemanticClassification.gif")
+![image](Resources/SemanticClassification.gif)
 
 This sample implements support for a trivial language composed of simple math expressions of the
 form "W + X EQUALS Y + Z".
