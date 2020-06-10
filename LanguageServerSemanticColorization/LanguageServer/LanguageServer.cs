@@ -19,6 +19,7 @@
         {
             this.target = new LanguageServerTarget(this);
             this.rpc = JsonRpc.Attach(sender, reader, this.target);
+
             this.rpc.Disconnected += OnRpcDisconnected;
 
             this.DocumentManager = new DocumentManager(serviceFactories);

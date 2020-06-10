@@ -69,8 +69,27 @@
                 // TODO: multiple lines?
                 if (lineNumber < lineTokens.Count)
                 {
+                    // TODO: make this handle gaps in the lines or token deletions.
+                    var lastTokenLine = lineNumber > 0 ?
+                        lineNumber - 1 :
+                        0;
+
+                    //if (newToken != null)
+                    //{
+                    //    newToken = new Token(
+                    //        newToken.Value.Line - lastTokenLine,
+                    //        newToken.Value.StartOffset,
+                    //        newToken.Value.Length,
+                    //        newToken.Value.IsMatch);
+                    //}
+
+                    changeCollection.Add(
+                        new Change(
+                            lineNumber,
+                            lineTokens[lineNumber] != null ? 1 : 0,
+                            ImmutableArray.Create(newToken)));
+
                     lineTokens = lineTokens.SetItem(lineNumber, newToken);
-                    changeCollection.Add(new Change(lineNumber, 1, ImmutableArray.Create(newToken)));
                 }
                 else
                 {

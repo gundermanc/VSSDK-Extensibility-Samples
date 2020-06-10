@@ -11,6 +11,7 @@
     using Microsoft.VisualStudio.LanguageServer.Protocol;
 
     using static LanguageServerLibrary.Parser.ParserService;
+    using System.Threading.Tasks;
 
     public sealed class LanguageServerTarget
     {
@@ -41,7 +42,7 @@
         [JsonRpcMethod(Methods.InitializeName, UseSingleObjectParameterDeserialization = true)]
         public object Initialize(InitializeParams arg)
         {
-            var capabilities = new ServerCapabilities()
+            var capabilities = new VSServerCapabilities()
             {
                 TextDocumentSync = new TextDocumentSyncOptions()
                 {
@@ -60,7 +61,7 @@
                     // by Visual Studio to colorize the text.
                     Legend = new SemanticTokensLegend
                     {
-                        TokenModifiers = Array.Empty<string>(),
+                        TokenModifiers = SemanticTokenModifiers.AllModifiers.ToArray(),
                         TokenTypes = SemanticTokenTypes.AllTypes.ToArray()
                     },
 
@@ -135,7 +136,7 @@
         /// range requests. Visual Studio, for example, will never call this if RangeProvider
         /// capability is <c>true</c>.
         /// </remarks>
-        [JsonRpcMethod(Methods.TextDocumentSemanticTokensName, UseSingleObjectParameterDeserialization = true)]
+        [JsonRpcMethod(SemanticTokensMethods.TextDocumentSemanticTokensName, UseSingleObjectParameterDeserialization = true)]
         public SemanticTokens OnTextDocumentSemanticTokens(SemanticTokensParams semanticTokensParams)
         {
             var document = this.server.DocumentManager.GetOrAddDocument(semanticTokensParams.TextDocument.Uri);
@@ -147,7 +148,7 @@
             // we complete the parse, but the LSP client is going to
             // ask for new tokens immediately. We need to await the
             // in progress parse here.
-            var dataBuilder = new List<double>();
+            var dataBuilder = new List<int>();
             Token previousToken = new Token(0, 0, 0, false);
             foreach (var token in parserService.LineTokens)
             {
@@ -160,7 +161,7 @@
                     // When doing progressive updates, specify first relative to the start of the doc.
                     previousToken = new Token(0, 0, 0, false);
 
-                    List<double> batchTokensBuilder = new List<double>();
+                    List<int> batchTokensBuilder = new List<int>();
                     this.EncodeToken(batchTokensBuilder, token, ref previousToken);
                     semanticTokensParams.PartialResultToken.Report(new SemanticTokens { Data = batchTokensBuilder.ToArray() });
 
@@ -187,7 +188,7 @@
         /// This method is probably used by most clients for colorizing spans of text that
         /// are currently visible.
         /// </remarks>
-        [JsonRpcMethod(Methods.TextDocumentSemanticTokensRangeName, UseSingleObjectParameterDeserialization = true)]
+        [JsonRpcMethod(SemanticTokensMethods.TextDocumentSemanticTokensRangeName, UseSingleObjectParameterDeserialization = true)]
         public SemanticTokens OnTextDocumentSemanticTokensRange(SemanticTokensRangeParams semanticTokensParams)
         {
             var document = this.server.DocumentManager.GetOrAddDocument(semanticTokensParams.TextDocument.Uri);
@@ -202,7 +203,7 @@
             // we complete the parse, but the LSP client is going to
             // ask for new tokens immediately. We need to await the
             // in progress parse here.
-            var dataBuilder = new List<double>();
+            var dataBuilder = new List<int>();
             Token previousToken = new Token(0, 0, 0, false);
             for (int lineNumber = semanticTokensParams.Range.Start.Line; lineNumber < endLine; lineNumber++)
             {
@@ -217,7 +218,7 @@
                     // When doing progressive updates, specify first relative to the start of the doc.
                     previousToken = new Token(0, 0, 0, false);
 
-                    List<double> batchTokensBuilder = new List<double>();
+                    List<int> batchTokensBuilder = new List<int>();
                     this.EncodeToken(batchTokensBuilder, lineToken, ref previousToken);
                     semanticTokensParams.PartialResultToken.Report(new SemanticTokens { Data = batchTokensBuilder.ToArray() });
 
@@ -236,7 +237,7 @@
             };
         }
 
-        [JsonRpcMethod(Methods.TextDocumentSemanticTokensEditsName, UseSingleObjectParameterDeserialization = true)]
+        [JsonRpcMethod(SemanticTokensMethods.TextDocumentSemanticTokensEditsName, UseSingleObjectParameterDeserialization = true)]
         public SumType<SemanticTokens, SemanticTokensEdits> OnTextDocumentSemanticTokensEdits(SemanticTokensEditsParams semanticTokensParams)
         {
             var document = this.server.DocumentManager.GetOrAddDocument(semanticTokensParams.TextDocument.Uri);
@@ -278,10 +279,11 @@
 
         private SemanticTokensEdit EncodeChange(Change change)
         {
-            var tokensBuilder = new List<double>();
+            var tokensBuilder = new List<int>();
             Token previousToken = new Token(0, 0, 0, false);
             foreach (var token in change.Tokens)
             {
+                previousToken = new Token(0, 0, 0, false);
                 EncodeToken(tokensBuilder, token, ref previousToken);
             }
 
@@ -293,7 +295,7 @@
             };
         }
 
-        private void EncodeToken(List<double> dataBuilder, Token? token, ref Token previousToken)
+        private void EncodeToken(List<int> dataBuilder, Token? token, ref Token previousToken)
         {
             if (token.HasValue)
             {

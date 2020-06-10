@@ -51,6 +51,9 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\..\VSLanguageServerClient\bin\product\RemoteLanguage.Protocol\Debug\netstandard1.0\Microsoft.VisualStudio.LanguageServer.Protocol.dll</HintPath>
     </Reference>
+    <Reference Include="Microsoft.VisualStudio.LanguageServer.Protocol.Extensions">
+      <HintPath>..\..\..\VSLanguageServerClient\bin\product\LanguageServer.Protocol.Extensions\Debug\net472\Microsoft.VisualStudio.LanguageServer.Protocol.Extensions.dll</HintPath>
+    </Reference>
     <Reference Include="Microsoft.VisualStudio.Threading, Version=16.6.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.VisualStudio.Threading.16.6.13\lib\net472\Microsoft.VisualStudio.Threading.dll</HintPath>
     </Reference>
